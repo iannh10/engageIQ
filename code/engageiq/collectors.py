@@ -2,8 +2,8 @@
 
 The app runs offline from ``data/engageiq_opportunities.csv`` for grading. These
 helpers document and support the live ingestion path required by the project:
-GitHub REST, GH Archive, Reddit, and Hacker News can all be normalized into the
-same schema as the offline snapshot.
+GitHub REST, GH Archive, Forem (DEV.to), and Hacker News can all be normalized
+into the same schema as the offline snapshot.
 """
 
 from __future__ import annotations
@@ -109,48 +109,93 @@ def collect_gh_archive_hour(url: str) -> list[dict[str, object]]:
     return rows
 
 
-def collect_reddit_praw(subreddit: str, query: str = "developer tools", limit: int = 50) -> list[dict[str, object]]:
-    """Collect Reddit submissions through PRAW.
+# Map common Forem (DEV.to) tags onto the 15 required EngageIQ domains so live
+# articles get an accurate domain label from their own metadata rather than the
+# permissive keyword guesser in ``infer_domain``.
+FOREM_TAG_DOMAIN = {
+    "machinelearning": "Machine Learning",
+    "datascience": "Machine Learning",
+    "ml": "Machine Learning",
+    "ai": "AI Research",
+    "llm": "AI Research",
+    "devops": "DevOps/K8s",
+    "kubernetes": "DevOps/K8s",
+    "k8s": "DevOps/K8s",
+    "opensource": "Trending Open-Source",
+    "devtools": "Developer Tools",
+    "tooling": "Developer Tools",
+    "security": "Cybersecurity",
+    "cybersecurity": "Cybersecurity",
+    "react": "Frontend (React/Web)",
+    "webdev": "Frontend (React/Web)",
+    "javascript": "Frontend (React/Web)",
+    "typescript": "Frontend (React/Web)",
+    "saas": "B2B SaaS",
+    "startups": "B2B SaaS",
+    "blockchain": "Blockchain",
+    "web3": "Blockchain",
+    "python": "Python Data Eng",
+    "dataengineering": "Python Data Eng",
+    "gamedev": "GameDev (C++)",
+    "cpp": "GameDev (C++)",
+    "embedded": "Embedded Systems (C/RTOS)",
+    "iot": "Embedded Systems (C/RTOS)",
+    "rtos": "Embedded Systems (C/RTOS)",
+    "aws": "Cloud APIs",
+    "cloud": "Cloud APIs",
+    "serverless": "Cloud APIs",
+    "azure": "Cloud APIs",
+    "flutter": "Mobile Dev (iOS/Flutter)",
+    "ios": "Mobile Dev (iOS/Flutter)",
+    "android": "Mobile Dev (iOS/Flutter)",
+    "beginners": "Beginner Coding",
+    "tutorial": "Beginner Coding",
+    "codenewbie": "Beginner Coding",
+}
 
-    Required environment variables:
-    - REDDIT_CLIENT_ID
-    - REDDIT_CLIENT_SECRET
-    - REDDIT_USER_AGENT
 
-    The function intentionally reads public subreddit/search results only. It
-    does not access private account history, saved posts, votes, or messages.
+def forem_domain(tags: list[str]) -> str | None:
+    for tag in tags:
+        key = tag.lower().replace(" ", "").replace("-", "").replace("_", "")
+        if key in FOREM_TAG_DOMAIN:
+            return FOREM_TAG_DOMAIN[key]
+    return None
+
+
+def collect_forem(tag: str, query: str = "", limit: int = 50) -> list[dict[str, object]]:
+    """Collect published articles from the Forem (DEV.to) public API.
+
+    No authentication is required to read public articles. The function reads
+    published articles for a tag only — it does not access private user data,
+    drafts, reading history, or account analytics.
+
+    Endpoint: https://dev.to/api/articles?tag={tag}&per_page={limit}
     """
 
-    try:
-        import praw
-    except ImportError as exc:
-        raise RuntimeError("PRAW is not installed. Run `pip install praw` or add it to your environment.") from exc
-
-    missing = [
-        name
-        for name in ["REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"]
-        if not os.environ.get(name)
-    ]
-    if missing:
-        raise RuntimeError(f"Missing Reddit environment variables: {', '.join(missing)}")
-
-    reddit = praw.Reddit(
-        client_id=os.environ["REDDIT_CLIENT_ID"],
-        client_secret=os.environ["REDDIT_CLIENT_SECRET"],
-        user_agent=os.environ["REDDIT_USER_AGENT"],
-    )
+    params = urlencode({"tag": tag, "per_page": min(limit, 100), "top": 365})
+    data = http_json(f"https://dev.to/api/articles?{params}")
     rows = []
-    for submission in reddit.subreddit(subreddit).search(query, sort="new", limit=limit):
-        body = f"{submission.selftext or ''} subreddit:{subreddit}"
+    for item in data if isinstance(data, list) else []:
+        title = item.get("title", "")
+        description = item.get("description") or ""
+        raw_tags = item.get("tag_list") or item.get("tags") or []
+        if isinstance(raw_tags, str):
+            tag_list = [part.strip() for part in raw_tags.split(",") if part.strip()]
+        else:
+            tag_list = list(raw_tags)
+        body = f"{description} tags:{' '.join(tag_list)}"
+        if query:
+            body = f"{body} {query}"
         rows.append(
             normalize_record(
-                "reddit",
-                submission.title,
+                "forem",
+                title,
                 body,
-                f"r/{subreddit}",
-                f"https://reddit.com{submission.permalink}",
-                int(getattr(submission, "score", 0) or 0),
-                int(getattr(submission, "num_comments", 0) or 0),
+                f"DEV.to / {tag}",
+                item.get("url", ""),
+                int(item.get("positive_reactions_count", 0) or 0),
+                int(item.get("comments_count", 0) or 0),
+                domain=forem_domain(tag_list),
             )
         )
     return rows
@@ -166,10 +211,12 @@ def normalize_record(
     comments: int,
     stars: int = 0,
     language: str = "",
+    domain: str | None = None,
 ) -> dict[str, object]:
     now = datetime.now(timezone.utc).isoformat()
     text = f"{title} {body}".lower()
-    domain = infer_domain(text)
+    if domain is None:
+        domain = infer_domain(text)
     return {
         "id": stable_id(source, title, url),
         "source": source,

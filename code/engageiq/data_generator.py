@@ -2,7 +2,7 @@
 
 The project spec expects live platform ingestion plus an offline snapshot for
 grading. This module creates a deterministic 10k+ snapshot that mirrors the
-schema returned by GitHub, GH Archive, Reddit, and Hacker News collectors.
+schema returned by GitHub, GH Archive, Forem (DEV.to), and Hacker News collectors.
 Live collectors can append into the same CSV later.
 """
 
@@ -30,7 +30,7 @@ DATA_PATH = ROOT / "data" / "engageiq_opportunities.csv"
 COMMUNITIES = {
     "github": ["issues", "pull-requests", "discussions", "good-first-issues"],
     "gh_archive": ["push-events", "watch-events", "issue-events", "release-events"],
-    "reddit": ["r/MachineLearning", "r/devops", "r/kubernetes", "r/programming", "r/startups", "r/SideProject"],
+    "forem": ["DEV.to / machinelearning", "DEV.to / devops", "DEV.to / kubernetes", "DEV.to / programming", "DEV.to / startups", "DEV.to / opensource"],
     "hacker_news": ["Ask HN", "Show HN", "Launch HN", "Front Page"],
 }
 

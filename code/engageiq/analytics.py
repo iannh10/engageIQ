@@ -11,7 +11,7 @@ from .data_generator import DATA_PATH, ensure_snapshot
 
 def load_data(path: Path = DATA_PATH) -> pd.DataFrame:
     ensure_snapshot(path)
-    df = pd.read_csv(path)
+    df = pd.read_csv(path, low_memory=False)
     df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
     return df
 

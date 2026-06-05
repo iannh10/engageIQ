@@ -1,6 +1,6 @@
 # EngageIQ - BAX 423 Final Project
 
-EngageIQ is a smart engagement opportunity scorer for GitHub, GH Archive, Reddit, and Hacker News. It implements the Option C requirements from `BAX423_Final_OnePager.pdf` and `BAX423_FinalProject_EngageIQ_Spring2026_v2.docx`.
+EngageIQ is a smart engagement opportunity scorer for GitHub, GH Archive, Forem (DEV.to), and Hacker News. It implements the Option C requirements from `BAX423_Final_OnePager.pdf` and `BAX423_FinalProject_EngageIQ_Spring2026_v2.docx`.
 
 ## What It Does
 
@@ -129,13 +129,10 @@ cp .env.example .env
 
 Then edit `.env` and set `GITHUB_TOKEN`. The script loads `.env` automatically.
 
-Reddit requires PRAW credentials:
+Forem (DEV.to) requires no credentials — it reads the public articles API:
 
 ```bash
-export REDDIT_CLIENT_ID="your_reddit_client_id"
-export REDDIT_CLIENT_SECRET="your_reddit_client_secret"
-export REDDIT_USER_AGENT="EngageIQ:BAX423:v1.0 by your_username"
-python3 code/ingest_live.py --sources reddit --reddit-query "machine learning" --subreddits MachineLearning learnpython
+python3 code/ingest_live.py --sources forem --forem-tags machinelearning python webdev
 ```
 
 Useful examples:
@@ -158,9 +155,9 @@ The grading app runs from the offline snapshot. `code/ingest_live.py` and `code/
 - GitHub REST API v3
 - GH Archive
 - Hacker News API
-- Reddit via PRAW
+- Forem (DEV.to) public articles API
 
-For privacy, the app is designed to collect public opportunities, not a user's personal GitHub, Reddit, or Hacker News activity.
+For privacy, the app is designed to collect public opportunities, not a user's personal GitHub, DEV.to, or Hacker News activity.
 
 Current source/API status:
 
@@ -169,7 +166,7 @@ Current source/API status:
 | GitHub | Yes | Yes |
 | GH Archive | Yes | Yes |
 | Hacker News | Yes | Yes |
-| Reddit | Reddit-style snapshot | PRAW script support; requires Reddit approval/credentials |
+| Forem (DEV.to) | Yes | Yes; public articles API, no credentials |
 
 ## Dashboard Behavior
 

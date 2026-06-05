@@ -2,7 +2,7 @@
 
 ## Project Goal
 
-EngageIQ is a smart engagement opportunity scorer for the BAX-423 final project. It helps a professional decide where to invest time online by ranking public opportunities from GitHub, GH Archive, Reddit-style communities, and Hacker News-style posts.
+EngageIQ is a smart engagement opportunity scorer for the BAX-423 final project. It helps a professional decide where to invest time online by ranking public opportunities from GitHub, GH Archive, Forem (DEV.to) articles, and Hacker News-style posts.
 
 The app is designed around the required workflow:
 
@@ -23,7 +23,7 @@ The dataset contains 10,500 records, with 700 records in each of the 15 required
 
 - `github`
 - `gh_archive`
-- `reddit`
+- `forem`
 - `hacker_news`
 
 Each record has a stable `id`, source, domain, community, title, body, URL, author, timestamp, activity signals, growth signals, estimated effort, language, tags, and good-first-issue flag.
@@ -36,13 +36,10 @@ Live API ingestion can be run with:
 python3 code/ingest_live.py --sources github gh_archive hacker_news
 ```
 
-Reddit/PRAW ingestion requires:
+Forem (DEV.to) ingestion requires no credentials:
 
 ```bash
-export REDDIT_CLIENT_ID="your_reddit_client_id"
-export REDDIT_CLIENT_SECRET="your_reddit_client_secret"
-export REDDIT_USER_AGENT="EngageIQ:BAX423:v1.0 by your_username"
-python3 code/ingest_live.py --sources reddit
+python3 code/ingest_live.py --sources forem --forem-tags machinelearning devops python
 ```
 
 The live ingestion script collects public data only. It does not inspect private account history, saved posts, votes, messages, or private repositories.
@@ -54,13 +51,13 @@ The EngageIQ instructions require an offline dataset large enough for grading an
 - at least 10,000 structured records
 - coverage across all 15 technical domains
 - an offline snapshot in the `data/` folder so graders can run without API access
-- multiple public source categories such as GitHub, GH Archive, Reddit, and Hacker News
+- multiple public source categories such as GitHub, GH Archive, Forem (DEV.to), and Hacker News
 
 The current local dataset exceeds this threshold. After live ingestion tests, `data/engageiq_opportunities.csv` contains 76,972 unique records across all 15 domains. Source counts in the current snapshot are:
 
 - `gh_archive`: 69,092
 - `github`: 2,630
-- `reddit`: 2,625
+- `forem`: 2,625
 - `hacker_news`: 2,625
 
 The original deterministic offline baseline was 10,500 records, with 700 records in each domain. Live ingestion appends additional public records and then applies exact `id` deduplication.
@@ -74,7 +71,7 @@ EngageIQ currently supports these source modes:
 | GitHub REST API | Yes | Yes | Optional `GITHUB_TOKEN` for better rate limits |
 | GH Archive | Yes | Yes | No |
 | Hacker News API | Yes | Yes | No |
-| Reddit/PRAW | Reddit-style offline data | Script support exists | Reddit Data API approval and PRAW credentials |
+| Forem (DEV.to) | Yes | Yes | None; public articles API |
 
 The running dashboard primarily reads from the CSV snapshot. Live ingestion is performed separately through `code/ingest_live.py`, then the dashboard should be restarted so it reloads the updated dataset.
 
@@ -156,7 +153,7 @@ Every ranked card includes a "Why this?" explanation generated from the scoring 
 - good-first-issue signal
 - rising-fast signal
 
-Suggested actions are template-generated from the source and opportunity type. For example, GitHub opportunities suggest opening an issue or submitting a small PR, while Reddit opportunities suggest concise discussion comments.
+Suggested actions are template-generated from the source and opportunity type. For example, GitHub opportunities suggest opening an issue or submitting a small PR, while Forem (DEV.to) opportunities suggest concise discussion comments.
 
 ## Adaptive Learning
 
@@ -309,14 +306,14 @@ Observed local tests:
 
 ## Privacy Position
 
-EngageIQ ranks public engagement opportunities. It does not track a user's private activity on GitHub, Reddit, Hacker News, or other platforms. The app does not read private messages, saved posts, votes, private repositories, browsing history, or personal account analytics. The only user-specific data stored by the dashboard is local in-app profile input and feedback. Saved custom profiles are stored in the browser's `localStorage`, and feedback clicks are stored locally in `data/feedback_events.json`.
+EngageIQ ranks public engagement opportunities. It does not track a user's private activity on GitHub, DEV.to, Hacker News, or other platforms. The app does not read private messages, saved posts, votes, private repositories, browsing history, or personal account analytics. The only user-specific data stored by the dashboard is local in-app profile input and feedback. Saved custom profiles are stored in the browser's `localStorage`, and feedback clicks are stored locally in `data/feedback_events.json`.
 
 ## Current Limitations
 
 This build is optimized for a reliable offline grading demo. The main limitations are:
 
 - The dataset is synthetic but schema-compatible with public API data.
-- Live collectors exist for GitHub, GH Archive, Hacker News, and Reddit/PRAW, but the dashboard primarily uses the offline snapshot unless `code/ingest_live.py` is run.
+- Live collectors exist for GitHub, GH Archive, Hacker News, and Forem (DEV.to), but the dashboard primarily uses the offline snapshot unless `code/ingest_live.py` is run.
 - The pipeline is batch/offline rather than a true continuously running stream.
 - The first SBERT run requires downloading the model unless it is already cached.
 - Suggested actions are template-generated rather than LLM-generated.
@@ -328,7 +325,7 @@ These are suitable points to disclose in the technical brief under limitations a
 
 For a stronger full-credit implementation, the next upgrades would be:
 
-- Add scheduled live ingestion from GitHub, GH Archive, Reddit/PRAW, and Hacker News.
+- Add scheduled live ingestion from GitHub, GH Archive, Forem (DEV.to), and Hacker News.
 - Add user accounts so feedback logs can be separated by authenticated user.
 - Use a contextual bandit for adaptive learning.
 - Generate suggested actions with an LLM API.

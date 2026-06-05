@@ -21,7 +21,7 @@ DOMAINS = [
     "Beginner Coding",
 ]
 
-SOURCES = ["github", "gh_archive", "reddit", "hacker_news"]
+SOURCES = ["github", "gh_archive", "forem", "hacker_news"]
 
 DOMAIN_KEYWORDS = {
     "Machine Learning": ["machine learning", "nlp", "classification", "pandas", "model", "feature store"],
@@ -47,25 +47,16 @@ PERSONAS = {
         "background": "MSBA student building a visible open-source portfolio before job hunting.",
         "interests": "machine learning, NLP, data pipelines, Python, pandas, beginner-friendly repos",
         "goal": "Find beginner-friendly GitHub repos and ML discussions for visible contribution.",
-        "platforms": ["github", "reddit"],
+        "platforms": ["github", "forem"],
         "time_budget": 5,
         "avoid": "C++, Rust, advanced systems internals",
-    },
-    "Emma": {
-        "name": "Emma Career Switcher",
-        "background": "Beginner software learner moving into tech and building a practical public portfolio.",
-        "interests": "beginner Python, web development, tutorials, documentation, first contribution, portfolio projects",
-        "goal": "Find approachable GitHub issues and learning-friendly discussions that build confidence and visible experience.",
-        "platforms": ["github", "reddit", "hacker_news"],
-        "time_budget": 4,
-        "avoid": "advanced C++ systems, Kubernetes internals, cryptography research, low-level firmware",
     },
     "David": {
         "name": "David DevOps Engineer",
         "background": "Mid-career DevOps engineer establishing cloud-native thought leadership.",
         "interests": "Kubernetes, Terraform, CI/CD, observability, infrastructure, cloud native",
         "goal": "Find high-signal infra repos and discussions where expert commentary adds value.",
-        "platforms": ["github", "reddit", "hacker_news"],
+        "platforms": ["github", "forem", "hacker_news"],
         "time_budget": 3,
         "avoid": "general frontend, beginner web dev",
     },
@@ -74,7 +65,7 @@ PERSONAS = {
         "background": "Tech journalist tracking open-source and community trend leads.",
         "interests": "trending repos, viral discussions, emerging tools, community drama, growth velocity",
         "goal": "Surface fast-growing opportunities before they go mainstream.",
-        "platforms": ["github", "gh_archive", "reddit", "hacker_news"],
+        "platforms": ["github", "gh_archive", "forem", "hacker_news"],
         "time_budget": 10,
         "avoid": "",
     },
@@ -83,7 +74,7 @@ PERSONAS = {
         "background": "Technical founder growing awareness for a developer tools startup.",
         "interests": "developer productivity, APIs, CLI tools, open-source business models, startup marketing",
         "goal": "Find relevant threads, posts, and repos for authentic product-aware engagement.",
-        "platforms": ["reddit", "github", "hacker_news"],
+        "platforms": ["forem", "github", "hacker_news"],
         "time_budget": 4,
         "avoid": "general programming with no developer-tool angle",
     },

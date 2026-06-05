@@ -25,7 +25,7 @@ LOGO_SVG = LOGO_SVG.replace('<?xml version="1.0" encoding="UTF-8"?>', "").strip(
 
 st.set_page_config(
     page_title="EngageIQ",
-    page_icon="assets/EngageIQ-RadarScope-color.svg",
+    page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -35,6 +35,8 @@ if "entered" not in st.session_state:
     st.session_state["entered"] = False
 if "theme" not in st.session_state:
     st.session_state["theme"] = "dark"
+if "sim_result" not in st.session_state:
+    st.session_state["sim_result"] = None
 
 
 def theme_css() -> str:
@@ -90,6 +92,16 @@ def get_ranker() -> OpportunityRanker:
 @st.cache_data(show_spinner="Loading opportunity dataset...")
 def get_data() -> pd.DataFrame:
     return load_data()
+
+
+@st.cache_data(show_spinner=False)
+def get_stats() -> dict:
+    return summary(load_data())
+
+
+@st.cache_data(show_spinner=False)
+def get_trends() -> dict:
+    return trends(load_data())
 
 
 def theme_toggle_button(key: str) -> None:
@@ -148,7 +160,7 @@ def render_landing(stats: dict) -> None:
             <div class="eqx-hero">
               <div class="eqx-eyebrow">Public signals · Personalized ranking · Faster decisions</div>
               <h1>Find the best places to show up online.</h1>
-              <p>EngageIQ scores GitHub, GH Archive, Reddit, and Hacker News-style opportunities against
+              <p>EngageIQ scores GitHub, GH Archive, Forem (DEV.to), and Hacker News-style opportunities against
               test personas or your own custom profile, then turns the best matches into ranked actions
               and a downloadable engagement brief.</p>
             </div>
@@ -181,7 +193,7 @@ def render_landing(stats: dict) -> None:
               <div class="eqx-row">
                 <div class="eqx-rank">2</div>
                 <div><strong>Kubernetes discussion with expert-comment gap</strong>
-                     <div class="eqx-subtle">David DevOps Engineer · Reddit · 30 min</div></div>
+                     <div class="eqx-subtle">David DevOps Engineer · Forem (DEV.to) · 30 min</div></div>
                 <div class="eqx-score">88.7</div>
               </div>
               <div class="eqx-row">
@@ -217,7 +229,7 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
           <div>
             <div class="eqx-eyebrow">BAX-423 Final Build</div>
             <strong style="font-size: 22px;">EngageIQ</strong>
-            <div class="eqx-subtle">Smart engagement opportunity scorer for GitHub, GH Archive, Reddit, and Hacker News.</div>
+            <div class="eqx-subtle">Smart engagement opportunity scorer for GitHub, GH Archive, Forem (DEV.to), and Hacker News.</div>
           </div>
         </div>
         """,
@@ -242,7 +254,7 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
             interests = st.text_area("Interests", "machine learning, Python, NLP, open-source contribution")
             skillsets = st.text_input("Skillsets", "Python, pandas, scikit-learn")
             goal = st.text_area("Goal", "Find approachable opportunities for visible contribution.")
-            platforms = st.multiselect("Sources", SOURCES, default=["github", "reddit"])
+            platforms = st.multiselect("Sources", SOURCES, default=["github", "forem"])
             time_budget = st.slider("Weekly time budget (hours)", 1.0, 12.0, 4.0, 0.5)
             avoid = st.text_area("Avoid", "advanced systems internals")
         else:
@@ -263,7 +275,16 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
 
     profile = make_profile(persona_key, name, interests, skillsets, goal, platforms, time_budget, avoid)
 
+    # Run simulation before tabs so results persist regardless of active tab
+    if run_sim:
+        with st.spinner("Running 60 simulated feedback rounds..."):
+            st.session_state["sim_result"] = simulate_feedback(ranker, profile, rounds=60)
+        st.sidebar.success("✓ Simulation complete — results in Recommendations tab")
+
     tab_recs, tab_analytics, tab_tests = st.tabs(["Recommendations", "Analytics", "Persona Coverage"])
+
+    _BRIEF_COLS = ["rank", "source", "domain", "title", "diversified_score",
+                   "effort_minutes", "why_this", "suggested_action", "url"]
 
     with tab_recs:
         recs = ranker.recommend(profile, limit=limit)
@@ -272,9 +293,13 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
         if recs.empty:
             st.warning("No recommendations matched the current profile and source filters.")
         else:
+            # Build curated CSV (only human-readable columns)
+            _csv_frame = recs.copy().reset_index(drop=True)
+            _csv_frame.insert(0, "rank", range(1, len(_csv_frame) + 1))
+            csv_bytes = _csv_frame[_BRIEF_COLS].to_csv(index=False).encode("utf-8")
+
             dl = st.columns([1, 1, 4])
             with dl[0]:
-                csv_bytes = recs.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download CSV Brief",
                     data=csv_bytes,
@@ -320,33 +345,41 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
                         f"<div class='eqx-action'><b>Suggested action:</b> {row['suggested_action']}</div>",
                         unsafe_allow_html=True,
                     )
-                    if row.get("url"):
-                        st.markdown(f"[Open opportunity ↗]({row['url']})")
+                    url = str(row.get("url", ""))
+                    if url and "example.com" not in url:
+                        st.markdown(f"[Open opportunity ↗]({url})")
 
                     fb = st.columns([1, 1, 1, 5])
                     rid = str(row["id"])
                     if fb[0].button("👍 Engage", key=f"eng_{rid}_{i}"):
                         FeedbackStore().append(row, "engage", profile)
                         ranker.update_feedback(row, "engage")
-                        st.toast("Recorded engage feedback")
+                        st.toast("Engage recorded — refreshing rankings")
+                        st.rerun()
                     if fb[1].button("🔖 Bookmark", key=f"bm_{rid}_{i}"):
                         FeedbackStore().append(row, "bookmark", profile)
                         ranker.update_feedback(row, "bookmark")
-                        st.toast("Recorded bookmark feedback")
+                        st.toast("Bookmark recorded — refreshing rankings")
+                        st.rerun()
                     if fb[2].button("👎 Skip", key=f"sk_{rid}_{i}"):
                         FeedbackStore().append(row, "skip", profile)
                         ranker.update_feedback(row, "skip")
-                        st.toast("Recorded skip feedback")
+                        st.toast("Skip recorded — refreshing rankings")
+                        st.rerun()
 
-        if run_sim:
-            with st.spinner("Running 60 simulated feedback rounds..."):
-                result = simulate_feedback(ranker, profile, rounds=60)
+        sim_result = st.session_state.get("sim_result")
+        if sim_result:
+            st.markdown("---")
+            st.subheader("Feedback Simulation Results")
             sm = st.columns(4)
-            sm[0].metric("Rounds", result["rounds"])
-            sm[1].metric("Precision@10 before", result["precision_at_10_before"])
-            sm[2].metric("Precision@10 after", result["precision_at_10_after"])
-            sm[3].metric("Improvement", result["improvement"])
-            st.caption(f"Actions: {result['actions']}")
+            sm[0].metric("Rounds", sim_result["rounds"])
+            sm[1].metric("Precision@10 before", sim_result["precision_at_10_before"])
+            sm[2].metric("Precision@10 after", sim_result["precision_at_10_after"])
+            sm[3].metric("Improvement", sim_result["improvement"])
+            st.caption(f"Actions: {sim_result['actions']}")
+            if st.button("Clear simulation results", key="clear_sim"):
+                st.session_state["sim_result"] = None
+                st.rerun()
 
     with tab_analytics:
         left, right = st.columns(2)
@@ -409,9 +442,8 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
 
 
 ranker = get_ranker()
-data = get_data()
-stats = summary(data)
-trend_data = trends(data)
+stats = get_stats()
+trend_data = get_trends()
 
 if st.session_state["entered"]:
     render_dashboard(ranker, stats, trend_data)

@@ -337,6 +337,6 @@ def suggest_action(row: pd.Series) -> str:
         if int(row.get("good_first_issue", 0)):
             return "Open the issue, comment with your intended approach, then submit a small PR."
         return "Review open issues, add a focused technical comment, and propose a small contribution path."
-    if source == "reddit":
+    if source == "forem":
         return f"Write a concise comment sharing a concrete {domain} example and ask one follow-up question."
     return f"Draft a short insight on the {domain} trend, linking it to a practical next step."

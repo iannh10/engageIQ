@@ -6,22 +6,22 @@ from pathlib import Path
 
 from engageiq.collectors import (
     append_records,
+    collect_forem,
     collect_gh_archive_hour,
     collect_github_search,
     collect_hacker_news,
-    collect_reddit_praw,
 )
 from engageiq.config import DOMAINS
 from engageiq.data_generator import DATA_PATH, ensure_snapshot
 
 
-DEFAULT_SUBREDDITS = [
-    "MachineLearning",
+DEFAULT_FOREM_TAGS = [
+    "machinelearning",
     "devops",
     "kubernetes",
-    "programming",
-    "startups",
-    "SideProject",
+    "python",
+    "webdev",
+    "opensource",
 ]
 
 
@@ -55,8 +55,8 @@ def parse_args() -> argparse.Namespace:
         "--sources",
         nargs="+",
         default=["github", "gh_archive", "hacker_news"],
-        choices=["github", "gh_archive", "hacker_news", "reddit"],
-        help="Sources to collect. Reddit requires PRAW credentials.",
+        choices=["github", "gh_archive", "hacker_news", "forem"],
+        help="Sources to collect. Forem (DEV.to) reads public articles with no credentials.",
     )
     parser.add_argument(
         "--domains",
@@ -69,9 +69,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gh-archive-url", default=None, help="Specific GH Archive .json.gz hourly URL.")
     parser.add_argument("--gh-hours-back", type=int, default=2, help="Recent GH Archive hour to use when URL is omitted.")
     parser.add_argument("--gh-lookback-hours", type=int, default=24, help="How many older GH Archive hours to try if recent files are missing.")
-    parser.add_argument("--reddit-query", default="developer tools", help="PRAW search query.")
-    parser.add_argument("--subreddits", nargs="+", default=DEFAULT_SUBREDDITS, help="Subreddits for PRAW search.")
-    parser.add_argument("--reddit-limit", type=int, default=25, help="Records per subreddit.")
+    parser.add_argument("--forem-query", default="", help="Optional keyword appended to Forem article text.")
+    parser.add_argument("--forem-tags", nargs="+", default=DEFAULT_FOREM_TAGS, help="Forem (DEV.to) tags to pull articles from.")
+    parser.add_argument("--forem-limit", type=int, default=25, help="Records per Forem tag.")
     parser.add_argument("--output", type=Path, default=DATA_PATH, help="CSV dataset path to append to.")
     parser.add_argument("--dry-run", action="store_true", help="Collect and print counts without writing.")
     return parser.parse_args()
@@ -122,12 +122,12 @@ def main() -> None:
         rows.extend(collected)
         source_counts["hacker_news"] = source_counts.get("hacker_news", 0) + len(collected)
 
-    if "reddit" in args.sources:
-        for subreddit in args.subreddits:
-            print(f"Collecting Reddit r/{subreddit} results for query: {args.reddit_query!r}...")
-            collected = collect_reddit_praw(subreddit, query=args.reddit_query, limit=args.reddit_limit)
+    if "forem" in args.sources:
+        for forem_tag in args.forem_tags:
+            print(f"Collecting Forem (DEV.to) articles for tag: {forem_tag!r}...")
+            collected = collect_forem(forem_tag, query=args.forem_query, limit=args.forem_limit)
             rows.extend(collected)
-            source_counts["reddit"] = source_counts.get("reddit", 0) + len(collected)
+            source_counts["forem"] = source_counts.get("forem", 0) + len(collected)
 
     print("Collected source counts:")
     for source, count in sorted(source_counts.items()):

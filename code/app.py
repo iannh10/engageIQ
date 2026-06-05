@@ -682,7 +682,7 @@ INDEX_HTML = r"""
       white-space: nowrap;
     }
     .source-github, .source-gh_archive { border-color: color-mix(in srgb, var(--blue) 35%, var(--line)); color: var(--blue); background: var(--blue-soft); }
-    .source-reddit { border-color: color-mix(in srgb, var(--coral) 35%, var(--line)); color: var(--coral); background: var(--coral-soft); }
+    .source-forem { border-color: color-mix(in srgb, var(--coral) 35%, var(--line)); color: var(--coral); background: var(--coral-soft); }
     .source-hacker_news { border-color: color-mix(in srgb, var(--gold) 35%, var(--line)); color: var(--gold); background: var(--gold-soft); }
     .opp-body { padding: 0 14px 14px 74px; }
     .signal-grid {
@@ -775,7 +775,7 @@ INDEX_HTML = r"""
       <div class="hero-copy">
         <div class="eyebrow">Public signals. Personalized ranking. Faster decisions.</div>
         <h1>Find the best places to show up online.</h1>
-        <p>EngageIQ scores GitHub, GH Archive, Reddit, and Hacker News-style opportunities against test personas or your own custom profile, then turns the best matches into ranked actions and a downloadable engagement brief.</p>
+        <p>EngageIQ scores GitHub, GH Archive, Forem (DEV.to), and Hacker News-style opportunities against test personas or your own custom profile, then turns the best matches into ranked actions and a downloadable engagement brief.</p>
         <div class="hero-actions">
           <button onclick="enterDashboard()">Enter Dashboard</button>
         </div>
@@ -801,7 +801,7 @@ INDEX_HTML = r"""
             <div class="mini-rank">2</div>
             <div>
               <strong>Kubernetes discussion with expert-comment gap</strong>
-              <div class="subtle">David DevOps Engineer · Reddit · 30 min</div>
+              <div class="subtle">David DevOps Engineer · Forem (DEV.to) · 30 min</div>
             </div>
             <div class="mini-score">88.7</div>
           </div>
@@ -829,7 +829,7 @@ INDEX_HTML = r"""
       <div>
         <div class="eyebrow">BAX-423 Final Build</div>
         <h1>EngageIQ</h1>
-        <div class="subtle">Smart engagement opportunity scorer for GitHub, GH Archive, Reddit, and Hacker News.</div>
+        <div class="subtle">Smart engagement opportunity scorer for GitHub, GH Archive, Forem (DEV.to), and Hacker News.</div>
       </div>
     </div>
     <div class="header-right">
