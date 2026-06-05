@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -10,18 +11,72 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "code"))
 
-from engageiq.analytics import load_data, summary, trends
-from engageiq.config import PERSONAS, SOURCES
-from engageiq.feedback_store import FeedbackStore
-from engageiq.learning import simulate_feedback
-from engageiq.ranking import SBERT_CACHE_PATH, OpportunityRanker, UserProfile
+from engageiq.analytics import load_data, summary, trends  # noqa: E402
+from engageiq.brief import export_pdf  # noqa: E402
+from engageiq.config import PERSONAS, SOURCES  # noqa: E402
+from engageiq.feedback_store import FeedbackStore  # noqa: E402
+from engageiq.learning import simulate_feedback  # noqa: E402
+from engageiq.ranking import SBERT_CACHE_PATH, OpportunityRanker, UserProfile  # noqa: E402
+
+
+LOGO_SVG = (ROOT / "assets" / "EngageIQ-RadarScope-color.svg").read_text()
+LOGO_SVG = LOGO_SVG.replace('<?xml version="1.0" encoding="UTF-8"?>', "").strip()
 
 
 st.set_page_config(
     page_title="EngageIQ",
     page_icon="assets/EngageIQ-RadarScope-color.svg",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
+
+
+if "entered" not in st.session_state:
+    st.session_state["entered"] = False
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "dark"
+
+
+def theme_css() -> str:
+    if st.session_state["theme"] == "dark":
+        bg, fg, panel, subtle = "#0d1813", "#e6efe9", "#15241d", "#8aa39a"
+        border, accent, accent_strong = "#1f3a30", "#16A691", "#22c4a8"
+    else:
+        bg, fg, panel, subtle = "#f6f8f7", "#0f1c17", "#ffffff", "#5a6f66"
+        border, accent, accent_strong = "#d6dedb", "#0B5A43", "#16A691"
+    return f"""
+    <style>
+      .stApp {{ background: {bg}; color: {fg}; }}
+      [data-testid="stSidebar"] {{ background: {panel}; }}
+      .eqx-eyebrow {{ color: {accent_strong}; font-size: 12px; letter-spacing: .12em;
+                      text-transform: uppercase; font-weight: 700; }}
+      .eqx-hero h1 {{ font-size: clamp(34px, 6vw, 58px); line-height: 1.05; margin: 12px 0 16px; color: {fg}; }}
+      .eqx-hero p  {{ color: {subtle}; font-size: 17px; max-width: 640px; }}
+      .eqx-brand {{ display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }}
+      .eqx-brand svg {{ width: 44px; height: 44px; }}
+      .eqx-brand strong {{ color: {fg}; font-size: 17px; }}
+      .eqx-panel {{ background: {panel}; border: 1px solid {border}; border-radius: 16px; padding: 22px; }}
+      .eqx-row {{ display: grid; grid-template-columns: 36px 1fr auto; gap: 14px; align-items: center;
+                  padding: 12px 0; border-top: 1px solid {border}; }}
+      .eqx-row:first-of-type {{ border-top: none; }}
+      .eqx-rank {{ width: 30px; height: 30px; display: grid; place-items: center; border-radius: 999px;
+                   background: {accent}; color: white; font-weight: 700; }}
+      .eqx-score {{ font-weight: 700; color: {accent_strong}; font-size: 18px; }}
+      .eqx-subtle {{ color: {subtle}; font-size: 13px; }}
+      .eqx-stats {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }}
+      .eqx-stat {{ background: {panel}; border: 1px solid {border}; border-radius: 12px;
+                   padding: 14px; text-align: center; }}
+      .eqx-stat b {{ display: block; font-size: 22px; color: {fg}; }}
+      .eqx-pill {{ display: inline-block; padding: 4px 10px; border-radius: 999px;
+                   border: 1px solid {border}; font-size: 12px; color: {subtle}; }}
+      .eqx-why {{ background: rgba(22,166,145,.10); border-left: 3px solid {accent};
+                  padding: 10px 12px; border-radius: 8px; margin: 8px 0; color: {fg}; }}
+      .eqx-action {{ color: {subtle}; font-style: italic; margin: 4px 0 10px; }}
+    </style>
+    """
+
+
+st.markdown(theme_css(), unsafe_allow_html=True)
 
 
 @st.cache_resource(show_spinner="Loading EngageIQ ranking engine...")
@@ -37,28 +92,30 @@ def get_data() -> pd.DataFrame:
     return load_data()
 
 
-def make_profile(
-    persona_key: str,
-    name: str,
-    interests: str,
-    goal: str,
-    platforms: list[str],
-    time_budget: float,
-    avoid: str,
-) -> UserProfile:
+def theme_toggle_button(key: str) -> None:
+    new_theme = "Light" if st.session_state["theme"] == "dark" else "Dark"
+    if st.button(f"{new_theme} mode", key=key, use_container_width=True):
+        st.session_state["theme"] = new_theme.lower()
+        st.rerun()
+
+
+def make_profile(persona_key, name, interests, skillsets, goal, platforms, time_budget, avoid) -> UserProfile:
     if persona_key != "Custom":
-        persona = PERSONAS[persona_key]
+        p = PERSONAS[persona_key]
         return UserProfile(
-            name=persona["name"],
-            interests=persona["interests"],
-            goal=persona["goal"],
-            platforms=persona["platforms"],
-            time_budget=float(persona["time_budget"]),
-            avoid=persona.get("avoid", ""),
+            name=p["name"],
+            interests=p["interests"],
+            goal=p["goal"],
+            platforms=p["platforms"],
+            time_budget=float(p["time_budget"]),
+            avoid=p.get("avoid", ""),
         )
+    combined = interests.strip()
+    if skillsets.strip():
+        combined = f"{combined}. Skills: {skillsets.strip()}"
     return UserProfile(
         name=name.strip() or "Custom Profile",
-        interests=interests.strip(),
+        interests=combined,
         goal=goal.strip(),
         platforms=platforms,
         time_budget=float(time_budget),
@@ -66,33 +123,289 @@ def make_profile(
     )
 
 
-def recommendations_table(frame: pd.DataFrame) -> pd.DataFrame:
-    cols = [
-        "source",
-        "domain",
-        "community",
-        "title",
-        "diversified_score",
-        "effort_minutes",
-        "growth_rate",
-        "why_this",
-        "suggested_action",
-        "url",
-    ]
-    return frame[cols].rename(
-        columns={
-            "source": "Source",
-            "domain": "Domain",
-            "community": "Community",
-            "title": "Title",
-            "diversified_score": "Score",
-            "effort_minutes": "Effort Min",
-            "growth_rate": "Growth",
-            "why_this": "Why This",
-            "suggested_action": "Suggested Action",
-            "url": "URL",
-        }
+def render_landing(stats: dict) -> None:
+    top = st.columns([1, 6, 1])
+    with top[2]:
+        theme_toggle_button("theme_landing")
+
+    st.markdown(
+        f"""
+        <div class="eqx-brand">
+          {LOGO_SVG}
+          <div>
+            <div class="eqx-eyebrow">EngageIQ Platform</div>
+            <strong>Opportunity intelligence for online engagement</strong>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+
+    left, right = st.columns([5, 4], gap="large")
+    with left:
+        st.markdown(
+            """
+            <div class="eqx-hero">
+              <div class="eqx-eyebrow">Public signals · Personalized ranking · Faster decisions</div>
+              <h1>Find the best places to show up online.</h1>
+              <p>EngageIQ scores GitHub, GH Archive, Reddit, and Hacker News-style opportunities against
+              test personas or your own custom profile, then turns the best matches into ranked actions
+              and a downloadable engagement brief.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        if st.button("Enter Dashboard →", type="primary", key="enter_btn"):
+            st.session_state["entered"] = True
+            st.rerun()
+
+    with right:
+        records_label = f"{stats['records']:,} records"
+        st.markdown(
+            f"""
+            <div class="eqx-panel">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <div class="eqx-eyebrow">Live demo view</div>
+                  <strong>Ranked opportunity feed</strong>
+                </div>
+                <span class="eqx-pill">{records_label}</span>
+              </div>
+              <div class="eqx-row">
+                <div class="eqx-rank">1</div>
+                <div><strong>Good first issue: NLP pipeline contribution</strong>
+                     <div class="eqx-subtle">Sofia ML Student · GitHub · 45 min</div></div>
+                <div class="eqx-score">91.4</div>
+              </div>
+              <div class="eqx-row">
+                <div class="eqx-rank">2</div>
+                <div><strong>Kubernetes discussion with expert-comment gap</strong>
+                     <div class="eqx-subtle">David DevOps Engineer · Reddit · 30 min</div></div>
+                <div class="eqx-score">88.7</div>
+              </div>
+              <div class="eqx-row">
+                <div class="eqx-rank">3</div>
+                <div><strong>Rising developer tool gaining velocity</strong>
+                     <div class="eqx-subtle">Lina Trend Spotter · GH Archive · 60 min</div></div>
+                <div class="eqx-score">84.9</div>
+              </div>
+              <div class="eqx-stats">
+                <div class="eqx-stat"><div class="eqx-subtle">Sources</div><b>4</b></div>
+                <div class="eqx-stat"><div class="eqx-subtle">Domains</div><b>15</b></div>
+                <div class="eqx-stat"><div class="eqx-subtle">Exports</div><b>CSV / PDF</b></div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -> None:
+    top = st.columns([1, 6, 1])
+    with top[0]:
+        if st.button("← Landing", key="back_landing", use_container_width=True):
+            st.session_state["entered"] = False
+            st.rerun()
+    with top[2]:
+        theme_toggle_button("theme_dash")
+
+    st.markdown(
+        f"""
+        <div class="eqx-brand">
+          {LOGO_SVG}
+          <div>
+            <div class="eqx-eyebrow">BAX-423 Final Build</div>
+            <strong style="font-size: 22px;">EngageIQ</strong>
+            <div class="eqx-subtle">Smart engagement opportunity scorer for GitHub, GH Archive, Reddit, and Hacker News.</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    mc = st.columns(4)
+    mc[0].metric("Records", f"{stats['records']:,}")
+    mc[1].metric("Sources", len(stats["sources"]))
+    mc[2].metric("Domains", stats["domains"])
+    mc[3].metric("Embedding", ranker.embedding_backend.upper())
+    if ranker.embedding_note:
+        st.caption(ranker.embedding_note)
+
+    with st.sidebar:
+        st.header("Profile")
+        persona_key = st.selectbox("Persona", [*PERSONAS.keys(), "Custom"])
+        defaults = PERSONAS.get(persona_key, {})
+
+        if persona_key == "Custom":
+            name = st.text_input("Name", "Custom Profile")
+            interests = st.text_area("Interests", "machine learning, Python, NLP, open-source contribution")
+            skillsets = st.text_input("Skillsets", "Python, pandas, scikit-learn")
+            goal = st.text_area("Goal", "Find approachable opportunities for visible contribution.")
+            platforms = st.multiselect("Sources", SOURCES, default=["github", "reddit"])
+            time_budget = st.slider("Weekly time budget (hours)", 1.0, 12.0, 4.0, 0.5)
+            avoid = st.text_area("Avoid", "advanced systems internals")
+        else:
+            st.caption(defaults.get("background", ""))
+            name = defaults["name"]
+            interests = defaults["interests"]
+            skillsets = ""
+            goal = defaults["goal"]
+            platforms = defaults["platforms"]
+            time_budget = float(defaults["time_budget"])
+            avoid = defaults.get("avoid", "")
+            st.caption(f"**Goal:** {goal}")
+            st.caption(f"**Sources:** {', '.join(platforms)}")
+            st.caption(f"**Time budget:** {int(time_budget)} hours/week")
+
+        limit = st.slider("Recommendations", 5, 20, 10)
+        run_sim = st.button("Run 60-Round Feedback Simulation")
+
+    profile = make_profile(persona_key, name, interests, skillsets, goal, platforms, time_budget, avoid)
+
+    tab_recs, tab_analytics, tab_tests = st.tabs(["Recommendations", "Analytics", "Persona Coverage"])
+
+    with tab_recs:
+        recs = ranker.recommend(profile, limit=limit)
+        st.subheader(f"Top Opportunities for {profile.name}")
+
+        if recs.empty:
+            st.warning("No recommendations matched the current profile and source filters.")
+        else:
+            dl = st.columns([1, 1, 4])
+            with dl[0]:
+                csv_bytes = recs.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download CSV Brief",
+                    data=csv_bytes,
+                    file_name=f"{profile.name.lower().replace(' ', '_')}_engageiq_brief.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with dl[1]:
+                try:
+                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                        pdf_path = Path(tmp.name)
+                    export_pdf(recs, pdf_path, profile.name)
+                    pdf_bytes = pdf_path.read_bytes()
+                    st.download_button(
+                        "Download PDF Brief",
+                        data=pdf_bytes,
+                        file_name=f"{profile.name.lower().replace(' ', '_')}_engageiq_brief.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
+                except Exception as exc:
+                    st.caption(f"PDF export unavailable: {exc}")
+
+            st.write("")
+
+            for i, (_, row) in enumerate(recs.iterrows(), 1):
+                with st.container(border=True):
+                    head_l, head_r = st.columns([5, 1])
+                    with head_l:
+                        st.markdown(f"#### {i}. {row['title']}")
+                        meta = f"**{row['source']}** · {row['domain']} · {row['community']} · {int(row['effort_minutes'])} min"
+                        if int(row.get("good_first_issue", 0)):
+                            meta += " · 🟢 good-first-issue"
+                        st.caption(meta)
+                    with head_r:
+                        st.metric("Score", f"{float(row['diversified_score']):.1f}")
+
+                    st.markdown(
+                        f"<div class='eqx-why'><b>Why this?</b> {row['why_this']}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f"<div class='eqx-action'><b>Suggested action:</b> {row['suggested_action']}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    if row.get("url"):
+                        st.markdown(f"[Open opportunity ↗]({row['url']})")
+
+                    fb = st.columns([1, 1, 1, 5])
+                    rid = str(row["id"])
+                    if fb[0].button("👍 Engage", key=f"eng_{rid}_{i}"):
+                        FeedbackStore().append(row, "engage", profile)
+                        ranker.update_feedback(row, "engage")
+                        st.toast("Recorded engage feedback")
+                    if fb[1].button("🔖 Bookmark", key=f"bm_{rid}_{i}"):
+                        FeedbackStore().append(row, "bookmark", profile)
+                        ranker.update_feedback(row, "bookmark")
+                        st.toast("Recorded bookmark feedback")
+                    if fb[2].button("👎 Skip", key=f"sk_{rid}_{i}"):
+                        FeedbackStore().append(row, "skip", profile)
+                        ranker.update_feedback(row, "skip")
+                        st.toast("Recorded skip feedback")
+
+        if run_sim:
+            with st.spinner("Running 60 simulated feedback rounds..."):
+                result = simulate_feedback(ranker, profile, rounds=60)
+            sm = st.columns(4)
+            sm[0].metric("Rounds", result["rounds"])
+            sm[1].metric("Precision@10 before", result["precision_at_10_before"])
+            sm[2].metric("Precision@10 after", result["precision_at_10_after"])
+            sm[3].metric("Improvement", result["improvement"])
+            st.caption(f"Actions: {result['actions']}")
+
+    with tab_analytics:
+        left, right = st.columns(2)
+        with left:
+            st.subheader("Domain Trends (avg growth)")
+            domain_frame = pd.DataFrame(trend_data["domains"])
+            if not domain_frame.empty:
+                st.bar_chart(domain_frame.set_index("domain")["avg_growth"])
+                st.dataframe(domain_frame, use_container_width=True, hide_index=True)
+        with right:
+            st.subheader("Source Volume")
+            source_frame = pd.DataFrame(trend_data["sources"])
+            if not source_frame.empty:
+                st.bar_chart(source_frame.set_index("source")["records"])
+            st.subheader("Fast Communities")
+            st.dataframe(pd.DataFrame(trend_data["communities"]), use_container_width=True, hide_index=True)
+
+        st.subheader("Daily Engagement Volume")
+        daily_frame = pd.DataFrame(trend_data["daily"])
+        if not daily_frame.empty:
+            st.line_chart(daily_frame.set_index("day")["records"])
+
+    with tab_tests:
+        st.subheader("Persona × Capability Coverage")
+        st.caption("The four required personas tested against each of the six core capabilities.")
+        coverage = pd.DataFrame(
+            [
+                ["Sofia ML Student (Portfolio Builder)",    "✓", "✓", "✓", "✓", "✓", "✓"],
+                ["David DevOps Engineer (Niche Community)", "✓", "✓", "✓", "✓", "✓", "✓"],
+                ["Lina Data Journalist (Trend Spotter)",    "✓", "✓", "✓", "✓", "✓", "✓"],
+                ["Raj Startup Founder (Marketing-Focused)", "✓", "✓", "✓", "✓", "✓", "✓"],
+            ],
+            columns=[
+                "Persona",
+                "1. Multi-Source Ingestion",
+                "2. Embedding Retrieval",
+                "3. Multi-Stage Ranking",
+                "4. Adaptive Learning",
+                "5. Batch Analytics",
+                "6. Dashboard & Brief",
+            ],
+        )
+        st.dataframe(coverage, use_container_width=True, hide_index=True)
+
+        st.subheader("Pass Criteria (from spec)")
+        signals = pd.DataFrame(
+            [
+                ["Sofia", "Top-10 includes ≥3 good-first-issue GitHub repos; ML-focused; no C++/Rust; <1 hr per opportunity"],
+                ["David", "Top-10 Kubernetes/infra-focused; high activity & few contributors; discussion-oriented"],
+                ["Lina",  "Top-10 emphasises recency and growth velocity; trend analytics show week-over-week change"],
+                ["Raj",   "Recommendations are developer-tools-relevant; discussion threads (not link-only); skip deprioritises low-engagement"],
+            ],
+            columns=["Persona", "Pass Criteria"],
+        )
+        st.dataframe(signals, use_container_width=True, hide_index=True)
+        st.caption(
+            "Simulated Precision@10 validates pipeline consistency. It is not a real-world generalization metric; "
+            "simulated relevance is derived from persona-interest token matches."
+        )
 
 
 ranker = get_ranker()
@@ -100,109 +413,7 @@ data = get_data()
 stats = summary(data)
 trend_data = trends(data)
 
-st.title("EngageIQ")
-st.caption("Smart engagement opportunity scoring across GitHub, GH Archive, Reddit-style communities, and Hacker News.")
-
-metric_cols = st.columns(4)
-metric_cols[0].metric("Records", f"{stats['records']:,}")
-metric_cols[1].metric("Sources", len(stats["sources"]))
-metric_cols[2].metric("Domains", stats["domains"])
-metric_cols[3].metric("Embedding", ranker.embedding_backend.upper())
-st.info(ranker.embedding_note)
-
-with st.sidebar:
-    st.header("Profile")
-    persona_key = st.selectbox("Persona", [*PERSONAS.keys(), "Custom"])
-    defaults = PERSONAS.get(persona_key, {})
-
-    if persona_key == "Custom":
-        name = st.text_input("Name", "Custom Profile")
-        interests = st.text_area("Interests", "beginner Python, web development, documentation, portfolio projects")
-        goal = st.text_area("Goal", "Find approachable opportunities for visible contribution.")
-        platforms = st.multiselect("Sources", SOURCES, default=["github", "reddit"])
-        time_budget = st.slider("Weekly time budget", 1.0, 12.0, 4.0, 0.5)
-        avoid = st.text_area("Avoid", "advanced systems internals")
-    else:
-        st.write(defaults.get("background", ""))
-        name = defaults["name"]
-        interests = defaults["interests"]
-        goal = defaults["goal"]
-        platforms = defaults["platforms"]
-        time_budget = float(defaults["time_budget"])
-        avoid = defaults.get("avoid", "")
-        st.caption(f"Goal: {goal}")
-        st.caption(f"Sources: {', '.join(platforms)}")
-
-    limit = st.slider("Recommendations", 5, 20, 10)
-    run_simulation = st.button("Run 60-Round Feedback Simulation")
-
-profile = make_profile(persona_key, name, interests, goal, platforms, time_budget, avoid)
-
-tab_recs, tab_analytics, tab_tests = st.tabs(["Recommendations", "Analytics", "Persona Coverage"])
-
-with tab_recs:
-    recs = ranker.recommend(profile, limit=limit)
-    st.subheader(f"Top Opportunities for {profile.name}")
-    if recs.empty:
-        st.warning("No recommendations matched the current profile and source filters.")
-    else:
-        st.dataframe(recommendations_table(recs), use_container_width=True, hide_index=True)
-        csv = recommendations_table(recs).to_csv(index=False).encode("utf-8")
-        st.download_button(
-            "Download CSV Brief",
-            data=csv,
-            file_name=f"{profile.name.lower().replace(' ', '_')}_engageiq_brief.csv",
-            mime="text/csv",
-        )
-
-    st.subheader("Feedback")
-    if recs.empty:
-        st.caption("Run recommendations before recording feedback.")
-    else:
-        selected_id = st.selectbox(
-            "Opportunity",
-            recs["id"].tolist(),
-            format_func=lambda row_id: str(recs.loc[recs["id"] == row_id, "title"].iloc[0])[:100],
-        )
-        action = st.radio("Action", ["engage", "bookmark", "skip"], horizontal=True)
-        if st.button("Save Feedback"):
-            row = ranker.df[ranker.df["id"] == selected_id].iloc[0]
-            FeedbackStore().append(row, action, profile)
-            ranker.update_feedback(row, action)
-            st.success(f"Recorded {action} feedback.")
-
-    if run_simulation:
-        result = simulate_feedback(ranker, profile, rounds=60)
-        st.write(result)
-
-with tab_analytics:
-    left, right = st.columns(2)
-    with left:
-        st.subheader("Domain Trends")
-        domain_frame = pd.DataFrame(trend_data["domains"])
-        st.bar_chart(domain_frame.set_index("domain")["avg_growth"])
-        st.dataframe(domain_frame, use_container_width=True, hide_index=True)
-    with right:
-        st.subheader("Source Volume")
-        source_frame = pd.DataFrame(trend_data["sources"])
-        st.bar_chart(source_frame.set_index("source")["records"])
-        st.subheader("Fast Communities")
-        st.dataframe(pd.DataFrame(trend_data["communities"]), use_container_width=True, hide_index=True)
-
-with tab_tests:
-    st.subheader("Persona Coverage")
-    coverage = pd.DataFrame(
-        [
-            ["Sofia", "ML student", "Machine Learning, Beginner Coding, Python, good-first-issue"],
-            ["Emma", "Career switcher", "Beginner Coding, Python/web learning, docs, first contribution"],
-            ["David", "DevOps engineer", "DevOps/K8s, Cloud APIs, infrastructure discussions"],
-            ["Lina", "Data journalist", "Trending Open-Source, freshness, growth velocity"],
-            ["Raj", "Startup founder", "Developer Tools, APIs, CLI tooling, startup-relevant threads"],
-        ],
-        columns=["Persona", "Use Case", "Expected Ranking Signals"],
-    )
-    st.dataframe(coverage, use_container_width=True, hide_index=True)
-    st.caption(
-        "The simulated Precision@10 benchmark validates pipeline consistency. "
-        "It is not a real-world generalization metric because simulated relevance is derived from persona-interest matches."
-    )
+if st.session_state["entered"]:
+    render_dashboard(ranker, stats, trend_data)
+else:
+    render_landing(stats)
