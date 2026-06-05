@@ -7,3 +7,6 @@ venv/
 data/exports/
 data/engageiq_sbert_embeddings.npy
 ~$*.docx
+BAX423_FinalProject_*.docx
+BAX423_Final_OnePager.pdf
+brief.pdf
