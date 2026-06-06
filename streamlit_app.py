@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 ROOT = Path(__file__).resolve().parent
@@ -50,6 +51,14 @@ def theme_css() -> str:
         border, accent, accent_strong = "#d6dedb", "#0B5A43", "#16A691"
     return f"""
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+      html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+      input, textarea, select, button, p, span, label, div {{
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      }}
+      h1, h2, h3, h4, h5, h6, .eqx-hero h1, .eqx-brand strong, .eqx-eyebrow {{
+        font-family: 'Space Grotesk', 'Inter', sans-serif !important; letter-spacing: -0.015em;
+      }}
       .stApp {{ background: {bg}; color: {fg}; }}
       [data-testid="stSidebar"] {{ background: {panel}; }}
       .eqx-eyebrow {{ color: {accent_strong}; font-size: 12px; letter-spacing: .12em;
@@ -76,6 +85,7 @@ def theme_css() -> str:
       .eqx-why {{ background: rgba(22,166,145,.10); border-left: 3px solid {accent};
                   padding: 10px 12px; border-radius: 8px; margin: 8px 0; color: {fg}; }}
       .eqx-action {{ color: {subtle}; font-style: italic; margin: 4px 0 10px; }}
+      .st-key-enter_btn {{ position: relative; z-index: 95; }}
     </style>
     """
 
@@ -186,6 +196,10 @@ def make_profile(persona_key, name, interests, skillsets, goal, platforms, time_
 
 
 def render_landing(stats: dict) -> None:
+    st.markdown(
+        "<style>.stApp, [data-testid=\"stAppViewContainer\"] { background: #000 !important; }</style>",
+        unsafe_allow_html=True,
+    )
     top = st.columns([1, 6, 1])
     with top[2]:
         theme_toggle_button("theme_landing")
@@ -266,7 +280,7 @@ def render_landing(stats: dict) -> None:
 def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -> None:
     top = st.columns([1, 6, 1])
     with top[0]:
-        if st.button("← Landing", key="back_landing", use_container_width=True):
+        if st.button("← Back", key="back_landing", use_container_width=True):
             st.session_state["entered"] = False
             st.rerun()
     with top[2]:
@@ -418,19 +432,19 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
                     if url and "example.com" not in url:
                         st.markdown(f"[Open opportunity ↗]({url})")
 
-                    fb = st.columns([1, 1, 1, 5])
+                    fb = st.columns([1, 1, 1, 4])
                     rid = str(row["id"])
-                    if fb[0].button("👍 Engage", key=f"eng_{rid}_{i}"):
+                    if fb[0].button("✓︎ Engage", key=f"eng_{rid}_{i}", use_container_width=True):
                         FeedbackStore().append(row, "engage", profile)
                         ranker.update_feedback(row, "engage")
                         st.toast("Engage recorded — refreshing rankings")
                         st.rerun()
-                    if fb[1].button("🔖 Bookmark", key=f"bm_{rid}_{i}"):
+                    if fb[1].button("⚑︎ Bookmark", key=f"bm_{rid}_{i}", use_container_width=True):
                         FeedbackStore().append(row, "bookmark", profile)
                         ranker.update_feedback(row, "bookmark")
                         st.toast("Bookmark recorded — refreshing rankings")
                         st.rerun()
-                    if fb[2].button("👎 Skip", key=f"sk_{rid}_{i}"):
+                    if fb[2].button("✕︎ Skip", key=f"sk_{rid}_{i}", use_container_width=True):
                         FeedbackStore().append(row, "skip", profile)
                         ranker.update_feedback(row, "skip")
                         st.toast("Skip recorded — refreshing rankings")
@@ -514,7 +528,83 @@ ranker = get_ranker()
 stats = get_stats()
 trend_data = get_trends()
 
+def cursor_spotlight(enable: bool) -> None:
+    if enable:
+        js = """
+        <script>
+        (function(){
+          const pdoc = window.parent.document, pwin = window.parent;
+          if (!pwin.__eqxFxInit){
+            pwin.__eqxFxInit = true;
+            const s = pdoc.createElement('script');
+            s.textContent = `
+              (function(){
+                const cv = document.createElement('canvas');
+                cv.id = 'eqx-tricanvas';
+                cv.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:90;opacity:0;transition:opacity .35s ease;';
+                document.body.appendChild(cv);
+                const ctx = cv.getContext('2d');
+                let dpr = Math.max(1, window.devicePixelRatio || 1);
+                function resize(){
+                  dpr = Math.max(1, window.devicePixelRatio || 1);
+                  cv.width = window.innerWidth * dpr; cv.height = window.innerHeight * dpr;
+                  cv.style.width = window.innerWidth + 'px'; cv.style.height = window.innerHeight + 'px';
+                  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                }
+                resize();
+                window.addEventListener('resize', resize);
+                const GRID = 32, RADIUS = 170, MAXS = 11, COLOR = '22,166,145';
+                let mx = -9999, my = -9999, raf = null;
+                function draw(){
+                  raf = null;
+                  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                  if (mx < -1000) return;
+                  const x0 = Math.max(0, Math.floor((mx - RADIUS) / GRID) * GRID);
+                  const x1 = Math.min(window.innerWidth, mx + RADIUS);
+                  const y0 = Math.max(0, Math.floor((my - RADIUS) / GRID) * GRID);
+                  const y1 = Math.min(window.innerHeight, my + RADIUS);
+                  for (let gx = x0; gx <= x1; gx += GRID){
+                    for (let gy = y0; gy <= y1; gy += GRID){
+                      const dx = gx - mx, dy = gy - my, d = Math.sqrt(dx*dx + dy*dy);
+                      if (d > RADIUS) continue;
+                      const t = 1 - d / RADIUS;
+                      const sz = MAXS * t;
+                      if (sz < 1) continue;
+                      const a = 0.12 + 0.58 * t;
+                      ctx.beginPath();
+                      ctx.moveTo(gx, gy - sz);
+                      ctx.lineTo(gx - sz * 0.9, gy + sz * 0.7);
+                      ctx.lineTo(gx + sz * 0.9, gy + sz * 0.7);
+                      ctx.closePath();
+                      ctx.fillStyle = 'rgba(' + COLOR + ',' + a.toFixed(3) + ')';
+                      ctx.fill();
+                    }
+                  }
+                }
+                const onMove = function(e){ mx = e.clientX; my = e.clientY; if(!raf) raf = requestAnimationFrame(draw); };
+                const onLeave = function(){ mx = -9999; my = -9999; if(!raf) raf = requestAnimationFrame(draw); };
+                window.__eqxFxEnable = function(){ cv.style.opacity = '1'; document.addEventListener('mousemove', onMove); document.addEventListener('mouseleave', onLeave); };
+                window.__eqxFxDisable = function(){ cv.style.opacity = '0'; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseleave', onLeave); mx = -9999; my = -9999; if(!raf) raf = requestAnimationFrame(draw); };
+              })();
+            `;
+            pdoc.body.appendChild(s);
+          }
+          (function go(){ if(pwin.__eqxFxEnable){ pwin.__eqxFxEnable(); } else { setTimeout(go, 30); } })();
+        })();
+        </script>
+        """
+    else:
+        js = """
+        <script>
+        (function(){ const pwin = window.parent; if(pwin.__eqxFxDisable){ pwin.__eqxFxDisable(); } })();
+        </script>
+        """
+    components.html(js, height=0)
+
+
 if st.session_state["entered"]:
+    cursor_spotlight(enable=False)
     render_dashboard(ranker, stats, trend_data)
 else:
+    cursor_spotlight(enable=True)
     render_landing(stats)
