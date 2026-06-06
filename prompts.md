@@ -1,5 +1,7 @@
 # Key AI Prompts
 
+_AI tools used: Claude Code (Anthropic) as the primary pair-programming assistant, and Codex by OpenAI as a secondary assistant._
+
 1. Inspect `BAX423_FinalProject_EngageIQ_Spring2026_v2.docx` and `BAX423_Final_OnePager.pdf`; identify required capabilities, rubric criteria, data sources, test personas, and whether the app needs to track personal platform activity.
 2. Build a runnable EngageIQ application matching Option C: multi-source ingestion schema, offline 10,000+ record dataset, embedding-style retrieval, engagement ranking, feedback learning, trend analytics, dashboard, and CSV/PDF brief export.
 3. Validate the app through local API checks, persona evaluation, and browser interaction testing.

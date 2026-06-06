@@ -361,9 +361,9 @@ def build():
 
         p("7. AI Tools and Prompts", s["h1"]),
         p(
-            "EngageIQ was built with Claude Code as the primary AI pair, in line with the project's "
-            "&quot;AI tools encouraged&quot; rule. The full prompt log is in "
-            "<font name='Courier'>prompts.md</font>. Highlights:",
+            "EngageIQ was built with Claude Code as the primary AI pair and Codex by OpenAI as a "
+            "secondary assistant, in line with the project's &quot;AI tools encouraged&quot; rule. "
+            "The full prompt log is in <font name='Courier'>prompts.md</font>. Highlights:",
             s["body"],
         ),
         bullet("<i>Inspect the docx and one-pager; identify required capabilities, rubric criteria, data sources, test personas, and whether the app needs to track personal platform activity.</i> Used to extract the rubric and define scope.", s["bullet"]),
