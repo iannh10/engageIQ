@@ -116,7 +116,6 @@ def get_trends() -> dict:
     return trends(load_data())
 
 
-@st.cache_data(show_spinner=False, ttl=3600)
 def llm_suggestion(
     opp_id: str,
     title: str,
@@ -129,8 +128,13 @@ def llm_suggestion(
 ) -> str | None:
     """Call Claude Haiku to generate a specific engagement suggestion.
     Returns None if ANTHROPIC_API_KEY is not set or the call fails.
-    Results are cached per (opportunity, profile) pair for the session.
+    Only successful results are cached (per opportunity + profile) so a
+    missing key or transient error never poisons the cache.
     """
+    cache = st.session_state.setdefault("_llm_cache", {})
+    ck = (opp_id, profile_name)
+    if ck in cache:
+        return cache[ck]
     try:
         api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
     except Exception:
@@ -158,8 +162,10 @@ def llm_suggestion(
             max_tokens=120,
             messages=[{"role": "user", "content": prompt}],
         )
-        text = msg.content[0].text.strip()
-        return text or None
+        text = msg.content[0].text.strip() or None
+        if text:
+            cache[ck] = text
+        return text
     except Exception:
         return None
 
@@ -278,24 +284,6 @@ def render_landing(stats: dict) -> None:
 
 
 def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -> None:
-    if st.query_params.get("debug") == "1":
-        try:
-            _k = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
-        except Exception:
-            _k = os.environ.get("ANTHROPIC_API_KEY", "")
-        st.warning(f"debug: key_present={bool(_k)} len={len(_k)} prefix={_k[:7]!r}")
-        if _k:
-            try:
-                import anthropic
-                _c = anthropic.Anthropic(api_key=_k)
-                _m = _c.messages.create(
-                    model="claude-haiku-4-5-20251001",
-                    max_tokens=20,
-                    messages=[{"role": "user", "content": "Say OK"}],
-                )
-                st.success(f"debug: LLM OK -> {_m.content[0].text!r}")
-            except Exception as _e:
-                st.error(f"debug: LLM ERROR -> {type(_e).__name__}: {_e}")
     top = st.columns([1, 6, 1])
     with top[0]:
         if st.button("← Back", key="back_landing", use_container_width=True):
