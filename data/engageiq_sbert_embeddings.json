@@ -2,5 +2,5 @@
   "model_name": "sentence-transformers/all-MiniLM-L6-v2",
   "rows": 76972,
   "dimension": 384,
-  "signature": "c82cf5a01e1dcad4be056119377e6a11f30c2826655d85107ebc4564a89dde1e"
+  "signature": "37057f922188287fdb664e67e420eb2a14b0ffbec9c4e435d07d5a16dc53f551"
 }

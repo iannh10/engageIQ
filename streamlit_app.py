@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -104,6 +105,54 @@ def get_trends() -> dict:
     return trends(load_data())
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def llm_suggestion(
+    opp_id: str,
+    title: str,
+    source: str,
+    domain: str,
+    community: str,
+    profile_name: str,
+    profile_interests: str,
+    profile_goal: str,
+) -> str | None:
+    """Call Claude Haiku to generate a specific engagement suggestion.
+    Returns None if ANTHROPIC_API_KEY is not set or the call fails.
+    Results are cached per (opportunity, profile) pair for the session.
+    """
+    try:
+        api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
+    except Exception:
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        prompt = (
+            f"A professional wants to engage with this online opportunity.\n\n"
+            f"Opportunity: {title}\n"
+            f"Platform: {source} — {community}\n"
+            f"Topic area: {domain}\n\n"
+            f"Their profile:\n"
+            f"  Name: {profile_name}\n"
+            f"  Interests: {profile_interests}\n"
+            f"  Goal: {profile_goal}\n\n"
+            f"Write exactly ONE sentence: a specific, concrete action they should take "
+            f"(e.g., the angle of a comment to leave, what PR to open, what unique insight "
+            f"to contribute). No preamble, no generic advice."
+        )
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=120,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = msg.content[0].text.strip()
+        return text or None
+    except Exception:
+        return None
+
+
 def theme_toggle_button(key: str) -> None:
     new_theme = "Light" if st.session_state["theme"] == "dark" else "Dark"
     if st.button(f"{new_theme} mode", key=key, use_container_width=True):
@@ -120,7 +169,7 @@ def make_profile(persona_key, name, interests, skillsets, goal, platforms, time_
             goal=p["goal"],
             platforms=p["platforms"],
             time_budget=float(p["time_budget"]),
-            avoid=p.get("avoid", ""),
+            avoid=avoid.strip(),
         )
     combined = interests.strip()
     if skillsets.strip():
@@ -256,7 +305,7 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
             goal = st.text_area("Goal", "Find approachable opportunities for visible contribution.")
             platforms = st.multiselect("Sources", SOURCES, default=["github", "forem"])
             time_budget = st.slider("Weekly time budget (hours)", 1.0, 12.0, 4.0, 0.5)
-            avoid = st.text_area("Avoid", "advanced systems internals")
+            avoid_default = "advanced systems internals"
         else:
             st.caption(defaults.get("background", ""))
             name = defaults["name"]
@@ -265,10 +314,17 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
             goal = defaults["goal"]
             platforms = defaults["platforms"]
             time_budget = float(defaults["time_budget"])
-            avoid = defaults.get("avoid", "")
+            avoid_default = defaults.get("avoid", "")
             st.caption(f"**Goal:** {goal}")
             st.caption(f"**Sources:** {', '.join(platforms)}")
             st.caption(f"**Time budget:** {int(time_budget)} hours/week")
+
+        avoid = st.text_area(
+            "Avoid",
+            avoid_default,
+            key=f"avoid_{persona_key}",
+            help="Topics to steer away from. Edit anytime — changes persist and re-rank immediately.",
+        )
 
         limit = st.slider("Recommendations", 5, 20, 10)
         run_sim = st.button("Run 60-Round Feedback Simulation")
@@ -341,8 +397,20 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
                         f"<div class='eqx-why'><b>Why this?</b> {row['why_this']}</div>",
                         unsafe_allow_html=True,
                     )
+                    _llm = llm_suggestion(
+                        opp_id=str(row["id"]),
+                        title=str(row["title"])[:200],
+                        source=str(row["source"]),
+                        domain=str(row["domain"]),
+                        community=str(row["community"]),
+                        profile_name=profile.name,
+                        profile_interests=profile.interests[:300],
+                        profile_goal=profile.goal[:200],
+                    )
+                    _action_text = _llm or str(row["suggested_action"])
+                    _action_label = "✨ AI suggestion" if _llm else "Suggested action"
                     st.markdown(
-                        f"<div class='eqx-action'><b>Suggested action:</b> {row['suggested_action']}</div>",
+                        f"<div class='eqx-action'><b>{_action_label}:</b> {_action_text}</div>",
                         unsafe_allow_html=True,
                     )
                     url = str(row.get("url", ""))
