@@ -192,7 +192,7 @@ def build():
         ),
         Preformatted(
             "final_score = 45*relevance + 15*health + 15*visibility\n"
-            "            + 10*freshness + 10*effort_fit + 5*feedback_affinity",
+            "            + 10*freshness + 10*effort_fit + 20*feedback_affinity",
             s["mono"],
         ),
         Spacer(1, 4),
@@ -209,8 +209,8 @@ def build():
 
         p("Technique 3 — Adaptive learning from feedback", s["h2"]),
         p(
-            "Engage / bookmark / skip events translate into tag-level weight deltas (+0.08, +0.05, "
-            "−0.07) that feed back into <font name='Courier'>feedback_affinity</font> on the next render. "
+            "Engage / bookmark / skip events translate into tag-level weight deltas (+0.30, +0.20, "
+            "−0.30) that feed back into <font name='Courier'>feedback_affinity</font> on the next render. "
             "Real dashboard clicks are persisted to <font name='Courier'>data/feedback_events.json</font> "
             "and replayed into the ranker at startup via "
             "<font name='Courier'>FeedbackStore.apply_to_ranker</font>, so learned preferences survive "

@@ -186,7 +186,7 @@ class OpportunityRanker:
         return frame.sort_values("relevance", ascending=False).head(top_k)
 
     def update_feedback(self, row: pd.Series, action: str) -> None:
-        delta = {"engage": 0.08, "bookmark": 0.05, "skip": -0.07}.get(action, 0.0)
+        delta = {"engage": 0.30, "bookmark": 0.20, "skip": -0.30}.get(action, 0.0)
         for token in split_tags(row.get("tags", "")):
             self.feedback_weights[token] = self.feedback_weights.get(token, 0.0) + delta
 
@@ -229,7 +229,7 @@ class OpportunityRanker:
             + 15 * frame["visibility"]
             + 10 * frame["freshness"]
             + 10 * frame["effort_fit"]
-            + 5 * frame["feedback_affinity"]
+            + 20 * frame["feedback_affinity"]
         )
         if "trend" in profile.goal.lower() or "journalist" in profile.name.lower():
             frame["final_score"] += 10 * frame["growth_rate"] + 5 * frame["freshness"]

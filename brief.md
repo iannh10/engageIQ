@@ -76,13 +76,13 @@ Candidate generation retrieves the top-500 semantically related records. A scori
 
 ```
 final_score = 45·relevance + 15·health + 15·visibility
-            + 10·freshness + 10·effort_fit + 5·feedback_affinity
+            + 10·freshness + 10·effort_fit + 20·feedback_affinity
 ```
 
 Health combines activity, comments, and contributors minus toxicity. Visibility combines platform score, stars, and growth rate. Effort fit penalizes opportunities far from the persona's weekly time budget. Persona-specific boosts add trend-velocity weight for the journalist profile, good-first-issue weight for beginner-oriented profiles, infra-domain weight for DevOps, and developer-tools weight for the startup founder. A final diversification pass penalizes repeated domains and over-represented sources so the top-10 does not collapse into a narrow slice of the dataset.
 
 **Technique 3 — Adaptive learning from feedback.**
-Engage / bookmark / skip events translate into tag-level weight deltas (+0.08, +0.05, −0.07) that feed back into `feedback_affinity` on the next render. Real dashboard clicks are persisted to `data/feedback_events.json` and replayed into the ranker at startup via `FeedbackStore.apply_to_ranker`, so learned preferences survive restarts. The simulation in `code/engageiq/learning.py` runs 60 rounds of engage/skip choices per persona and reports Precision@10 before and after adaptation.
+Engage / bookmark / skip events translate into tag-level weight deltas (+0.30, +0.20, −0.30) that feed back into `feedback_affinity` on the next render. Real dashboard clicks are persisted to `data/feedback_events.json` and replayed into the ranker at startup via `FeedbackStore.apply_to_ranker`, so learned preferences survive restarts. The simulation in `code/engageiq/learning.py` runs 60 rounds of engage/skip choices per persona and reports Precision@10 before and after adaptation.
 
 ## 4. Benchmarks
 
