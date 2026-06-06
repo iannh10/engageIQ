@@ -22,11 +22,12 @@ from engageiq.ranking import SBERT_CACHE_PATH, OpportunityRanker, UserProfile  #
 
 LOGO_SVG = (ROOT / "assets" / "EngageIQ-RadarScope-color.svg").read_text()
 LOGO_SVG = LOGO_SVG.replace('<?xml version="1.0" encoding="UTF-8"?>', "").strip()
+LOGO_ICON = str(ROOT / "assets" / "EngageIQ-RadarScope-color.png")
 
 
 st.set_page_config(
     page_title="EngageIQ",
-    page_icon="🎯",
+    page_icon=LOGO_ICON,
     layout="wide",
     initial_sidebar_state="expanded",
 )
