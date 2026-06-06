@@ -429,7 +429,7 @@ def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -
                         profile_goal=profile.goal[:200],
                     )
                     _action_text = _llm or str(row["suggested_action"])
-                    _action_label = "✨ AI suggestion" if _llm else "Suggested action"
+                    _action_label = "AI suggestion" if _llm else "Suggested action"
                     st.markdown(
                         f"<div class='eqx-action'><b>{_action_label}:</b> {_action_text}</div>",
                         unsafe_allow_html=True,
