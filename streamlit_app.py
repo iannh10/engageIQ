@@ -278,6 +278,24 @@ def render_landing(stats: dict) -> None:
 
 
 def render_dashboard(ranker: OpportunityRanker, stats: dict, trend_data: dict) -> None:
+    if st.query_params.get("debug") == "1":
+        try:
+            _k = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY", "")
+        except Exception:
+            _k = os.environ.get("ANTHROPIC_API_KEY", "")
+        st.warning(f"debug: key_present={bool(_k)} len={len(_k)} prefix={_k[:7]!r}")
+        if _k:
+            try:
+                import anthropic
+                _c = anthropic.Anthropic(api_key=_k)
+                _m = _c.messages.create(
+                    model="claude-haiku-4-5-20251001",
+                    max_tokens=20,
+                    messages=[{"role": "user", "content": "Say OK"}],
+                )
+                st.success(f"debug: LLM OK -> {_m.content[0].text!r}")
+            except Exception as _e:
+                st.error(f"debug: LLM ERROR -> {type(_e).__name__}: {_e}")
     top = st.columns([1, 6, 1])
     with top[0]:
         if st.button("← Back", key="back_landing", use_container_width=True):
