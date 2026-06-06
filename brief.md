@@ -1,7 +1,7 @@
 # EngageIQ — Technical Brief
 **BAX-423 Big Data · Spring 2026 · Final Project · Option C**
 **Live application:** https://engage-iq.streamlit.app/
-**Repository:** local submission ZIP, `Huang_Ian_BAX423_Final.zip`
+**Repository (code + dataset):** https://github.com/iannh10/engageIQ &nbsp;·&nbsp; also in submission ZIP `Huang_Ian_BAX423_Final.zip`
 **Author:** Ian Huang
 
 ---

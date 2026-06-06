@@ -89,6 +89,7 @@ def build():
         p("EngageIQ — Technical Brief", s["title"]),
         p("BAX-423 Big Data · Spring 2026 · Final Project · Option C", s["subtitle"]),
         p("Live application: <a href='https://engage-iq.streamlit.app/' color='#0B5A43'>https://engage-iq.streamlit.app/</a>", s["subtitle"]),
+        p("Repository (code + dataset): <a href='https://github.com/iannh10/engageIQ' color='#0B5A43'>https://github.com/iannh10/engageIQ</a>", s["subtitle"]),
         p("Submission: Huang_Ian_BAX423_Final.zip &nbsp;·&nbsp; Author: Ian Huang", s["subtitle"]),
         Spacer(1, 8),
 
